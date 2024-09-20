@@ -1,38 +1,14 @@
 #include "memory_manager.h"
 
-unsigned char *block_starts_;
-unsigned char *block_ends_;
-void *start_;
+void *memory_;
+dynamic_array_head blocks_;
 size_t size_;
-
-/// @brief sets a bit to 1
-/// @param array
-/// @param index
-void set_bit(unsigned char *array, size_t index) {
-    array[index / 8] |= (1 << (index % 8));
-}
-
-/// @brief sets a bit to 0
-/// @param array
-/// @param index
-void clear_bit(unsigned char *array, size_t index) {
-    array[index / 8] &= ~(1 << (index % 8));
-}
-
-/// @brief returns bit
-/// @param array
-/// @param index
-/// @return
-bool get_bit(const unsigned char *array, size_t index) {
-    return array[index / 8] & (1 << (index % 8));
-}
 
 /// @brief loads up the memory with memory
 /// @param size
 void mem_init(size_t size) {
-    start_ = malloc(size);
-    block_starts_ = calloc((size + 7) / 8, 1);
-    block_ends_ = calloc((size + 7) / 8, 1);
+    memory_ = malloc(size);
+    DA_init(&blocks_, (size / 64) + 1);
     size_ = size;
 }
 
@@ -41,67 +17,36 @@ void mem_init(size_t size) {
 /// @param size
 /// @return
 void *mem_alloc(size_t size) {
-    if (size == 0) return NULL;
-    size_t current_empty_blocks = 0;
-    bool empty = true;
-    for (size_t i = 0; i < size_; i++) {
-        if (get_bit(block_starts_, i) == 1) empty = false;
-        current_empty_blocks = (empty) ? current_empty_blocks + 1 : 0;
-
-        if (current_empty_blocks == size) {
-            set_bit(block_ends_, i);
-            set_bit(block_starts_, i + 1 - size);
-            return start_ + (i + 1 - size);
+    if (size == 0 || size > size_) return NULL;
+    memory_block *current_block = DA_get_first(&blocks_);
+    if (current_block == NULL || current_block->start - memory_ >= size) {
+        DA_add(&blocks_, (memory_block){memory_, memory_ + size - 1});
+        return memory_;
+    }
+    memory_block *next_block = DA_get_next(&blocks_, current_block);
+    while (next_block != NULL) {
+        if (next_block->start - current_block->end - 1 >= size) {
+            void *allocated = current_block->end + 1;
+            DA_add(&blocks_, (memory_block){allocated, allocated + size - 1});
+            return allocated;
         }
-        if (get_bit(block_ends_, i) == 1) empty = true;
+        current_block = next_block;
+        next_block = DA_get_next(&blocks_, next_block);
+    }
+    if (memory_ + size_ - 1 - current_block->end >= size) {
+        void *allocated = current_block->end + 1;
+        DA_add(&blocks_, (memory_block){allocated, allocated + size - 1});
+        return allocated;
     }
     return NULL;
 }
 
-void *mem_alloc_bestfit(size_t size) {
-    if (size == 0) return NULL;
-    size_t current_empty_blocks = 0;
-    bool empty = true;
-    void *bestfit = NULL;
-    size_t smallest_size = -1;
-    size_t index = 0;
-    while (index < size_) {
-        if (get_bit(block_starts_, index) == 1) {
-            empty = false;
-            if (current_empty_blocks >= size &&
-                current_empty_blocks < smallest_size) {
-                bestfit = start_ + index - current_empty_blocks;
-                smallest_size = current_empty_blocks;
-            }
-            current_empty_blocks = 0;
-        }
-        if (empty) current_empty_blocks++;
-        if (get_bit(block_ends_, index) == 1) empty = true;
-        index++;
-    }
-    if (current_empty_blocks >= size && current_empty_blocks < smallest_size) {
-        bestfit = start_ + index - current_empty_blocks;
-        smallest_size = current_empty_blocks;
-    }
-    if (bestfit) {
-        set_bit(block_starts_, bestfit - start_);
-        set_bit(block_ends_, bestfit - start_ + size - 1);
-        return bestfit;
-    }
-    return NULL;
-}
+void *mem_alloc_bestfit(size_t size) { return NULL; }
 
 /// @brief Frees the memory block preventing memory leaks
 /// @param block
 void mem_free(void *block) {
-    size_t block_index = block - start_;
-    if (block_index >= size_ || get_bit(block_starts_, block_index) == 0 ||
-        block == NULL)
-        return;
-
-    clear_bit(block_starts_, block_index);
-    while (get_bit(block_ends_, block_index) == 0) block_index++;
-    clear_bit(block_ends_, block_index);
+    return DA_remove(&blocks_, DA_find(&blocks_, block));
 }
 
 /// @brief changes the size of the block, if possible without moving it, returns
@@ -110,33 +55,32 @@ void mem_free(void *block) {
 /// @param size
 /// @return
 void *mem_resize(void *block, size_t size) {
-    if (block == NULL) return mem_alloc(size);
-    size_t start_index = block - start_;
-    if (start_index >= size_ || !get_bit(block_starts_, start_index)) return NULL;
-
-    size_t end_index = start_index;
-    while(!get_bit(block_ends_, end_index)) end_index++;
-
-    mem_free(block);
-    if (size == 0) return NULL;
-
-    void* new_block = mem_alloc(size);
-    if(!new_block) {
-        set_bit(block_starts_, start_index);
-        set_bit(block_ends_, end_index);
+    if (!block) return mem_alloc(size);
+    if (size == 0) {
+        mem_free(block);
         return NULL;
     }
-    if(new_block == block) return block;
-
-    size_t old_size = end_index - start_index + 1;
-    size_t min_size = (size < old_size) ? size : old_size;
-    memcpy(new_block, block, min_size);
-    return new_block;
+    memory_block *current_block = DA_find(&blocks_, block);
+    if (!current_block) return NULL;
+    memory_block *next_block = DA_get_next(&blocks_, current_block);
+    void *next_block_start = (next_block) ? next_block->start : memory_ + size_;
+    if (next_block_start - current_block->start >= size) {
+        current_block->end = current_block->start + size - 1;
+        return current_block->start;
+    }
+    memory_block temp = *current_block;
+    mem_free(current_block);
+    void *new_block = mem_alloc(size);
+    if (new_block) {
+        return new_block;
+        // copy stuff also
+    }
+    *current_block = temp;
+    return NULL;
 }
 
 /// @brief gives back the memory used by the memory manager
 void mem_deinit() {
-    free(block_ends_);
-    free(block_starts_);
-    free(start_);
+    free(memory_);
+    DA_deinit(&blocks_);
 }

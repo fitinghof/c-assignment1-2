@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include "dynamic_array.h"
 
 
 void mem_init(size_t size);

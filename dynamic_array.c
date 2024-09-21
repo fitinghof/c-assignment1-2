@@ -94,11 +94,8 @@ void DA_remove(dynamic_array_head* head, memory_block* block) {
 }
 
 memory_block* DA_find(dynamic_array_head* head, void* start) {
-    size_t searched_blocks = 0;
     for (size_t i = 0; i < head->total_size; i++) {
         if (head->array[i].start == start) return &(head->array[i]);
-        if (head->array[i].start != NULL) searched_blocks++;
-        if (searched_blocks == head->current_size) return NULL;
     }
     return NULL;
 }

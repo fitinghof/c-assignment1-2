@@ -72,8 +72,9 @@ void *mem_resize(void *block, size_t size) {
     mem_free(current_block);
     void *new_block = mem_alloc(size);
     if (new_block) {
+        size_t copy_size = (size > temp.end - temp.start + 1) ? size : temp.end - temp.start + 1;
+        memcpy(new_block, temp.start, copy_size);
         return new_block;
-        // copy stuff also
     }
     *current_block = temp;
     return NULL;

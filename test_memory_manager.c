@@ -72,7 +72,7 @@ block block_resize(block block_, size_t size) {
     return new_block;
 }
 
-void mem_free_all(int** blocks, size_t nrOf_blocks){
+void mem_free_all(int **blocks, size_t nrOf_blocks) {
     for (size_t i = 0; i < nrOf_blocks; i++) mem_free(blocks[i]);
 }
 
@@ -233,9 +233,8 @@ void test_resize() {
     size_t removed_block_index = nrOf_blocks / 2;
     block_free(&blocks[removed_block_index]);
 
-
     block fail_block =
-        block_resize(blocks[resized_block_index], block_size * 3);
+        block_resize(blocks[resized_block_index], block_size * 2 + 1);
     my_assert(fail_block.block == NULL &&
               "Block resize to invalid size succeded when it shouldn't");
 
@@ -244,6 +243,16 @@ void test_resize() {
     my_assert(blocks[resized_block_index].block != NULL &&
               "Block resize to valid size failed");
 
+    printf_yellow("  Testing if resize to new place copies data correctly\n");
+    block_free(&blocks[resized_block_index]);
+
+    for (size_t i = 0; i < blocks[0].size; i++) blocks[0].block[i] = i;
+
+    block resized_block_0 = block_resize(blocks[0], block_size * 2);
+
+    for (size_t i = 0; i < blocks[0].size; i++)
+        my_assert(resized_block_0.block[i] == blocks[0].block[i] &&
+                  "resize does not copy data correctly");
     test_memory_validity_(blocks, nrOf_blocks);
 
     printf_green("  -Successfull\n");

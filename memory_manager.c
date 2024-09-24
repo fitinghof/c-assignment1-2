@@ -17,7 +17,8 @@ void mem_init(size_t size) {
 /// @param size
 /// @return
 void *mem_alloc(size_t size) {
-    if (size == 0 || size > size_) return NULL;
+    if (size > size_) return NULL;
+    if(size == 0) return memory_; // wack
     memory_block *current_block = DA_get_first(&blocks_);
     if (current_block == NULL || current_block->start - memory_ >= size) {
         DA_add(&blocks_, (memory_block){memory_, memory_ + size - 1});

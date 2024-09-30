@@ -58,7 +58,7 @@ void shove_right_(dynamic_array_head* head, size_t index) {
 
 void DA_add(dynamic_array_head* head, memory_block block) {
     if (head->current_size == head->total_size) {
-        resize(head, head->total_size + 10);
+        resize(head, head->total_size * 2);
     }
     if (head->current_size == 0) {
         head->array[(head->current_size)++] = block;

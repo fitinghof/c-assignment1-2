@@ -120,4 +120,3 @@ memory_block *DA_get_first(dynamic_array_head *head){
 void DA_deinit(dynamic_array_head *head){
     free(head->array);
 }
-

@@ -1,26 +1,28 @@
 #ifndef LINKED_LIST_H
 #define LINKED_LIST_H
-#include <stdlib.h>
-#include "common_defs.h"
 #include <stdint.h>
+#include <stdlib.h>
+#include <stddef.h> // For his tests
+
+#include "common_defs.h"
 #include "memory_manager.h"
 
-typedef struct __attribute__((packed))Node {
+typedef struct __attribute__((packed)) Node {
     struct Node* next;
     uint16_t data;
 } Node;
 
-void list_init(Node** head);
+void list_init(Node** head, size_t size);
 
-void list_insert(Node** head, int data);
+void list_insert(Node** head, uint16_t data);
 
-void list_insert_after(Node* prev_node, int data);
+void list_insert_after(Node* prev_node, uint16_t data);
 
-void list_insert_before(Node** head, Node* next_node, int data);
+void list_insert_before(Node** head, Node* next_node, uint16_t data);
 
-void list_delete(Node** head, int data);
+void list_delete(Node** head, uint16_t data);
 
-Node* list_search(Node** head, int data);
+Node* list_search(Node** head, uint16_t data);
 
 void list_display(Node** head);
 
